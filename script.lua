@@ -13,7 +13,7 @@ local s = server
 local m = matrix
 local d = debugging
 
-DISASTER_LOGGER_VERSION = "(0.1.0.1)"
+DISASTER_LOGGER_VERSION = "(0.1.0)"
 
 g_savedata = {
 	disaster_log = {},
