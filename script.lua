@@ -58,32 +58,135 @@ local player_commands = {
 
 function onCustomCommand(full_message, peer_id, is_admin, is_auth, prefix, command, ...)
 	if prefix == "?dlog" then
-		command = string.lower(command) -- makes the command friendly, removing underscores and captitals
-		local arg = table.pack(...) -- this will supply all the remaining arguments to the function
+		if command then
+			command = string.lower(command) -- makes the command friendly, removing underscores and captitals
+			local arg = table.pack(...) -- this will supply all the remaining arguments to the function
 
-		-- commands
+			-- commands
+			if command == "info" then
+				d.print("------ Disaster Logger Info ------", peer_id)
+				d.print("Version: "..DISASTER_LOGGER_VERSION, peer_id)
+			end
 
 
-		-- host only commands
-		if is_admin and g_savedata.owner == getSteamID(peer_id) then
-			if command == "history" then
-				if #g_savedata.disaster_log ~= 0 then
-					local disasters_ago = (#g_savedata.disaster_log) - (arg[1] and tonumber(arg[1]) or 0)
-					if disasters_ago > #g_savedata.disaster_log then
-						d.print("That disaster never occured! the oldest one was "..#g_savedata.disaster_log.." disasters ago!", peer_id)
+			-- host only commands
+			if is_admin and g_savedata.owner == getSteamID(peer_id) then
+				if command == "history" then
+					if #g_savedata.disaster_log ~= 0 then
+						local disasters_ago = (#g_savedata.disaster_log) - (arg[1] and tonumber(arg[1]) or 0)
+						if disasters_ago > #g_savedata.disaster_log then
+							d.print("That disaster never occured! the oldest one was "..#g_savedata.disaster_log.." disasters ago!", peer_id)
+						else
+							d.print("Disaster Type: "..g_savedata.disaster_log[disasters_ago].disaster_data.type)
+							for _, player in pairs(g_savedata.disaster_log[disasters_ago].player_data) do
+								d.print("-----\nname: "..player.name.."\nSteamID: "..player.steam_id.."\nHas Admin: "..(player.is_admin and "True" or "False").."\nDistance from disaster: "..math.floor(player.distance).."m")
+							end
+						end
 					else
-						d.print("Disaster Type: "..g_savedata.disaster_log[disasters_ago].disaster_data.type)
-						for _, player in pairs(g_savedata.disaster_log[disasters_ago].player_data) do
-							d.print("-----\nname: "..player.name.."\nSteamID: "..player.steam_id.."\nHas Admin: "..(player.is_admin and "True" or "False").."\nDistance from disaster: "..math.floor(player.distance).."m")
+						d.print("There have been no disasters yet!", peer_id)
+					end
+				elseif command == "clear_history" then
+					g_savedata.disaster_log = {}
+					d.print("Disaster history cleared!", peer_id)
+				end
+			end
+
+			--
+			-- help command
+			--
+			if command == "help" then
+				if not arg[1] then -- print a list of all commands
+					
+					-- player commands
+					d.print("All Disaster Logger Commands (PLAYERS)", false, 0, peer_id)
+					for command_name, command_info in pairs(player_commands.normal) do 
+						if command_info.args ~= "none" then
+							d.print("-----\nCommand\n?dlog "..command_name.." "..command_info.args, false, 0, peer_id)
+						else
+							d.print("-----\nCommand\n?dlog "..command_name, false, 0, peer_id)
+						end
+						d.print("Short Description\n"..command_info.short_desc, false, 0, peer_id)
+					end
+
+					-- admin commands
+					if is_admin then 
+						d.print("\nAll Disaster Logger Commands (ADMIN)", false, 0, peer_id)
+						for command_name, command_info in pairs(player_commands.admin) do
+							if command_info.args ~= "none" then
+								d.print("-----\nCommand\n?dlog "..command_name.." "..command_info.args, false, 0, peer_id)
+							else
+								d.print("-----\nCommand\n?dlog "..command_name, false, 0, peer_id)
+							end
+							d.print("Short Description\n"..command_info.short_desc, false, 0, peer_id)
 						end
 					end
-				else
-					d.print("There have been no disasters yet!", peer_id)
+
+					-- host only commands
+					if is_admin and g_savedata.owner == getSteamID(peer_id) then
+						d.print("\nAll Disaster Logger Commands (HOST)", false, 0, peer_id)
+						for command_name, command_info in pairs(player_commands.host) do
+							if command_info.args ~= "none" then
+								d.print("-----\nCommand\n?dlog "..command_name.." "..command_info.args, false, 0, peer_id)
+							else
+								d.print("-----\nCommand\n?dlog "..command_name, false, 0, peer_id)
+							end
+							d.print("Short Description\n"..command_info.short_desc.."\n", false, 0, peer_id)
+						end
+					end
+
+				else -- print data only on the specific command they specified, if it exists
+					local command_exists = false
+					local has_permission = false
+					local command_data = nil
+					for permission_level, command_list in pairs(player_commands) do
+						for command_name, command_info in pairs(command_list) do
+							if command_name == arg[1]then
+								command_exists = true
+								command_data = command_info
+								if
+								permission_level == "admin" and is_admin 
+								or 
+								permission_level == "host" and is_admin and g_savedata.owner == getSteamID(peer_id)
+								or
+								permission_level == "normal"
+								then
+									has_permission = true
+								end
+							end
+						end
+					end
+					if command_exists then -- if the command exists
+						if has_permission then -- if they can execute it
+							if command_data.args ~= "none" then
+								d.print("\nCommand\n?dlog "..arg[1].." "..command_data.args, false, 0, peer_id)
+							else
+								d.print("\nCommand\n?dlog "..arg[1], false, 0, peer_id)
+							end
+							d.print("Description\n"..command_data.desc, false, 0, peer_id)
+							d.print("Example Usage\n"..command_data.example, false, 0, peer_id)
+						else
+							d.print("You do not have permission to use \""..arg[1].."\", contact a server admin if you believe this is incorrect.", false, 1, peer_id)
+						end
+					else
+						d.print("unknown command! \""..arg[1].."\" do \"?dlog help\" to get a list of all valid commands!", false, 1, peer_id)
+					end
 				end
-			elseif command == "clear_history" then
-				g_savedata.disaster_log = {}
-				d.print("Disaster history cleared!", peer_id)
 			end
+
+			-- if the command they entered exists
+			local is_command = false
+			for permission_level, command_list in pairs(player_commands) do
+				if command_list[command] then
+					is_command = true
+					break
+				end
+			end
+
+			if not is_command then -- if the command they specified does not exist
+				d.print("unknown command! \""..command.."\" do \"?dlog help\" to get a list of all valid commands!", peer_id)
+			end
+		else
+			d.print("you need to specify a command! use\n\"?dlog help\" to get a list of all commands!", peer_id)
 		end
 	end
 end
